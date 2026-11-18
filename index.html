@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Quêtes Île-de-France</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Mise en page : une seule colonne « téléphone », la carte en haut, la fiche du lieu et son bouton juste dessous. */
+:root{
+  --bg:#F2F4F9; --surface:#FFFFFF; --ink:#151A33; --muted:#5B6382; --line:#DCE0EC;
+  --accent:#D92662; --accent-ink:#FFFFFF;
+  --ok:#0B7F70; --warn:#9A5207; --bad:#B92A35;
+  --land:#E1E6F5; --land-edge:#C3CBE4; --water:#8DB4E6;
+  --badge:#FFC83D; --badge-ink:#3A2A00; --me:#2F6BFF;
+  --display:"Bricolage Grotesque","Arial Narrow",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1326; --surface:#191E38; --ink:#EEF0FA; --muted:#A3AAC8; --line:#2D3458;
+    --accent:#FF5C8D; --accent-ink:#22050F;
+    --ok:#3DD0BA; --warn:#F2A655; --bad:#FF8087;
+    --land:#232A4D; --land-edge:#3A4372; --water:#3F6FB0;
+    --me:#7FA6FF; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1326; --surface:#191E38; --ink:#EEF0FA; --muted:#A3AAC8; --line:#2D3458;
+  --accent:#FF5C8D; --accent-ink:#22050F;
+  --ok:#3DD0BA; --warn:#F2A655; --bad:#FF8087;
+  --land:#232A4D; --land-edge:#3A4372; --water:#3F6FB0;
+  --me:#7FA6FF; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--body)}
+[hidden]{display:none!important}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--me);outline-offset:2px}
+
+.app{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:14px;
+  padding-block:max(18px,env(safe-area-inset-top,0px)) max(28px,env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* En-tête et progression */
+.top{display:flex;flex-direction:column;gap:8px}
+.top-row{display:flex;align-items:center;gap:10px}
+h1{font:700 26px/1.1 var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.tag{font:600 11px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:99px;border:1.5px solid var(--ink)}
+.lede{margin:0;color:var(--muted)}
+.progress{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.slots{list-style:none;margin:0;padding:0;display:flex;gap:6px}
+.slot{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font:700 10.5px/1 var(--body);letter-spacing:.04em;
+  border:2px dashed var(--line);color:var(--muted)}
+.slot.on{background:var(--badge);color:var(--badge-ink);border:2px solid var(--badge-ink)}
+.slot.pop{animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{from{transform:scale(.3)}to{transform:scale(1)}}
+#progressText{margin:0;font-weight:600}
+
+.notice{background:var(--surface);border:1.5px solid var(--warn);border-radius:var(--r);padding:12px 14px}
+.notice strong{color:var(--warn)}
+.reward{background:var(--badge);color:var(--badge-ink);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:4px}
+.reward h2{font:700 20px/1.15 var(--display);margin:0}
+.reward p{margin:0}
+.reward code{font:600 15px/1 ui-monospace,Menlo,Consolas,monospace;background:var(--badge-ink);color:var(--badge);padding:6px 9px;border-radius:7px;display:inline-block;margin-top:6px}
+
+/* Carte */
+.map-card{background:var(--surface);border-radius:var(--r);padding:10px 10px 8px;border:1px solid var(--line)}
+#map svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.land{fill:var(--land);stroke:var(--land-edge);stroke-width:1.5;stroke-linejoin:round}
+.river{fill:none;stroke:var(--water);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.paris{fill:var(--land-edge);stroke:none}
+.pin{cursor:pointer}
+.pin .hit{fill:transparent}
+.pin .dot{fill:var(--surface);stroke:var(--ink);stroke-width:2}
+.pin.done .dot{fill:var(--badge);stroke:var(--badge-ink)}
+.pin.sel .dot{stroke:var(--accent);stroke-width:3.5}
+.pin .check{fill:none;stroke:var(--badge-ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pin-label{font:700 8px var(--body);fill:var(--ink);letter-spacing:.05em;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+.pin:focus-visible .dot{stroke:var(--me);stroke-width:3.5}
+.pin:focus{outline:none}
+.me-dot{fill:var(--me);stroke:var(--surface);stroke-width:2}
+.map-note{margin:6px 4px 0;font-size:12px;color:var(--muted)}
+
+/* Fiche du lieu */
+.place{background:var(--surface);border-radius:var(--r);padding:16px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.place h2{font:700 21px/1.15 var(--display);margin:0;text-wrap:balance}
+.where{display:flex;align-items:center;gap:3px 8px;flex-wrap:wrap;color:var(--muted);margin:4px 0 0}
+.pastille{font:700 11px/1 var(--body);letter-spacing:.03em;padding:4px 7px;border-radius:6px;background:var(--ink);color:var(--surface);white-space:nowrap}
+.check-row{display:flex;gap:14px;align-items:center}
+.radar{flex:0 0 112px;width:112px;height:112px}
+.radar .zone{fill:var(--land);stroke:var(--land-edge);stroke-width:1.5;stroke-dasharray:4 3}
+.radar.ok .zone{fill:color-mix(in srgb,var(--ok) 18%,transparent);stroke:var(--ok)}
+.radar .poi{fill:var(--ink)}
+.radar .zone-label{font:600 10px var(--body);fill:var(--muted)}
+.radar .halo{fill:color-mix(in srgb,var(--me) 22%,transparent);stroke:none}
+.radar .ray{stroke:var(--me);stroke-width:1.5;stroke-dasharray:3 3}
+.radar .me{fill:var(--me);stroke:var(--surface);stroke-width:2}
+.status{min-width:0;flex:1}
+.status p{margin:0}
+.status .head{font-weight:600;font-size:16px;line-height:1.3}
+.status .more{color:var(--muted);margin-top:3px;font-size:14px}
+.status.ok .head{color:var(--ok)} .status.far .head,.status.imprecise .head{color:var(--warn)} .status.err .head{color:var(--bad)}
+.cta{border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font:600 16px/1 var(--body);padding:16px;width:100%}
+.cta:disabled{background:var(--land);color:var(--muted);cursor:default}
+.cta.busy{opacity:.75;cursor:progress}
+
+/* Réglages de démonstration */
+.sim{border:1.5px dashed var(--land-edge);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.sim h2,.list h2{font:600 11px/1 var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--land);padding:4px;border-radius:11px}
+.seg button{border:0;background:transparent;border-radius:8px;padding:10px 8px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+select{width:100%;padding:9px 8px;border-radius:9px;border:1px solid var(--line);background:var(--surface)}
+.ghost{border:1.5px solid var(--ink);background:transparent;border-radius:10px;padding:11px 12px;font-weight:600;text-align:center}
+.hint{margin:0;font-size:13px;color:var(--muted)}
+.hint.err{color:var(--bad)}
+
+/* Journal technique */
+.log{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:0 14px}
+.log summary{padding:13px 0;font-weight:600;cursor:pointer}
+.log dl{margin:0 0 10px;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px}
+.log dt{color:var(--muted)}
+.log dd{margin:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.log p{margin:0 0 14px;font-size:13px;color:var(--muted)}
+
+/* Liste */
+.list{display:flex;flex-direction:column;gap:8px}
+.list ul{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.list li+li{border-top:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;text-align:left;padding:11px 14px}
+.row[aria-current="true"]{background:var(--land)}
+.code{flex:0 0 34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 10px/1 var(--body);letter-spacing:.04em;border:2px solid var(--line);color:var(--muted)}
+.row.done .code{background:var(--badge);color:var(--badge-ink);border-color:var(--badge-ink)}
+.row .txt{min-width:0;flex:1;display:flex;flex-direction:column}
+.row .n{font-weight:600}
+.row .t{font-size:13px;color:var(--muted)}
+.row .st{font-size:12px;font-weight:600;color:var(--ok);white-space:nowrap}
+
+footer{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.link{border:0;background:none;padding:6px 0;color:var(--muted);text-decoration:underline;font-size:13px}
+.link.danger{color:var(--bad);font-weight:600}
+/* Tutoriel */
+.how{align-self:flex-start;border:0;background:none;padding:2px 0;font-weight:600;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+dialog.tuto{border:0;padding:0;margin:auto auto 0;width:100%;max-width:480px;max-height:92dvh;overflow:auto;background:var(--surface);color:var(--ink);border-radius:22px 22px 0 0}
+dialog.tuto::backdrop{background:rgba(10,13,30,.6)}
+.tuto-art{height:168px;display:grid;place-items:center;background:var(--bg);padding:14px}
+.tuto-art svg{display:block;height:140px;width:auto;max-width:100%}
+.tuto-art .radar{flex:none;width:140px;height:140px}
+.tuto-art .slots{flex-wrap:wrap;justify-content:center}
+.art-pin{fill:var(--surface);stroke:var(--ink);stroke-width:3}
+.art-sel{fill:var(--surface);stroke:var(--accent);stroke-width:6}
+.art-line{fill:none;stroke:var(--ink);stroke-width:4;stroke-linecap:round}
+.art-stop{fill:var(--surface);stroke:var(--ink);stroke-width:3}
+.art-zone{fill:color-mix(in srgb,var(--ok) 16%,transparent);stroke:var(--ok);stroke-width:1.5;stroke-dasharray:4 3}
+.art-poi{fill:var(--accent)}
+.art-chip{fill:var(--ink)}
+.art-chip-t{font:700 11px var(--body);fill:var(--surface)}
+.art-t{font:600 10px var(--body);fill:var(--muted)}
+.art-seg{width:min(280px,100%)}
+.art-seg span{border-radius:8px;padding:10px 8px;font-weight:600;color:var(--muted);text-align:center}
+.art-seg span.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.tuto-body{display:flex;flex-direction:column;gap:8px;padding:18px 20px max(18px,env(safe-area-inset-bottom,0px))}
+.tuto-step{margin:0;font:600 11px/1 var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.tuto-body h2{font:700 22px/1.15 var(--display);margin:0;text-wrap:balance}
+.tuto-body .txt{margin:0;color:var(--muted);min-height:4.5em}
+.tuto-dots{display:flex;gap:6px;margin:4px 0}
+.tuto-dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.tuto-dots i.on{background:var(--accent);width:20px;border-radius:4px}
+.tuto-nav{display:flex;align-items:center;gap:12px}
+.tuto-nav .link{flex:0 0 auto;padding:12px 4px}
+.tuto-nav .cta{flex:1}
+@media (min-width:560px){ dialog.tuto{margin:auto;border-radius:22px} }
+@media (max-width:360px){ .check-row{flex-direction:column;align-items:flex-start} .fields{grid-template-columns:1fr} }
+@media (prefers-reduced-motion: reduce){ .slot.pop{animation:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="top-row"><h1>Quêtes en Île‑de‑France</h1><span class="tag">Démo</span></div>
+    <p class="lede">Rends-toi sur place, valide ta position, gagne un badge. 6 badges débloquent la récompense.</p>
+    <button type="button" class="how" id="openTuto">Comment ça marche ?</button>
+    <div class="progress">
+      <ol class="slots" id="slots" aria-label="Badges obtenus"></ol>
+      <p id="progressText"></p>
+    </div>
+  </header>
+
+  <div class="notice" id="inapp" hidden><strong>Ouvre cette page dans Safari ou Chrome.</strong> Le navigateur intégré de cette appli bloque souvent la géolocalisation.</div>
+
+  <section class="reward" id="reward" hidden aria-live="polite">
+    <h2>Récompense débloquée</h2>
+    <p>Tu as réuni 6 badges. Voici ton code (exemple fictif) :</p>
+    <div><code>DEMO-6BADGES</code></div>
+  </section>
+
+  <section class="map-card" aria-label="Carte des lieux">
+    <div id="map"></div>
+    <p class="map-note">Carte schématique. Touche un lieu pour ouvrir sa quête.</p>
+  </section>
+
+  <section class="place" id="place" aria-live="polite"></section>
+
+  <section class="sim" aria-label="Réglages de démonstration">
+    <h2>Réglages de démonstration</h2>
+    <div class="seg" role="group" aria-label="Position utilisée">
+      <button type="button" id="modeReal" aria-pressed="true">GPS réel</button>
+      <button type="button" id="modeSim" aria-pressed="false">Position simulée</button>
+    </div>
+    <div class="fields" id="simFields" hidden>
+      <label for="simWhere">Où je suis
+        <select id="simWhere">
+          <option value="40">Sur place (à 40 m)</option>
+          <option value="400">Dans le quartier (à 400 m)</option>
+          <option value="12000">Ailleurs (à 12 km)</option>
+        </select>
+      </label>
+      <label for="simAcc">Précision du téléphone
+        <select id="simAcc">
+          <option value="12">Bonne (± 12 m)</option>
+          <option value="80">Moyenne (± 80 m)</option>
+          <option value="2000">Approximative (± 2 km)</option>
+        </select>
+      </label>
+    </div>
+    <div id="realTools">
+      <button type="button" class="ghost" id="makeTest">Créer un lieu test à ma position</button>
+    </div>
+    <p class="hint" id="simHint"></p>
+  </section>
+
+  <details class="log" id="log">
+    <summary>Journal technique de la dernière vérification</summary>
+    <dl id="logBody"></dl>
+    <p>Dans cette démo le contrôle se fait dans la page. En production il se fait côté serveur, qui n'enregistre que la décision et la date, jamais les coordonnées.</p>
+  </details>
+
+  <section class="list">
+    <h2>Tous les lieux</h2>
+    <ul id="list"></ul>
+  </section>
+
+  <footer>
+    <button type="button" class="link" id="reset">Remettre la progression à zéro</button>
+  </footer>
+</div>
+
+<dialog class="tuto" id="tuto" aria-labelledby="tutoTitle">
+  <div class="tuto-art" id="tutoArt" aria-hidden="true"></div>
+  <div class="tuto-body">
+    <p class="tuto-step" id="tutoStep"></p>
+    <h2 id="tutoTitle"></h2>
+    <p class="txt" id="tutoText"></p>
+    <div class="tuto-dots" id="tutoDots" aria-hidden="true"></div>
+    <div class="tuto-nav">
+      <button type="button" class="link" id="tutoSkip">Passer</button>
+      <button type="button" class="cta" id="tutoNext">Suivant</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+  // --- Règles de validation ---
+  const RADIUS = 150;   // rayon autour du lieu, en mètres
+  const MAX_ACC = 150;  // précision maximale acceptée, en mètres
+  const GOAL = 6;       // badges nécessaires pour la récompense
+  const STORE = 'quetes-idf-demo-v1';
+
+  const PLACES = [
+    { id:'ver', code:'VER', name:'Château de Versailles', town:'Versailles (78)', line:'RER C', station:'Versailles Château Rive Gauche', lat:48.8049, lon:2.1204 },
+    { id:'sgl', code:'SGL', name:'Château de Saint-Germain-en-Laye', town:'Saint-Germain-en-Laye (78)', line:'RER A', station:'Saint-Germain-en-Laye', lat:48.8979, lon:2.0963 },
+    { id:'auv', code:'AUV', name:'Église d\'Auvers-sur-Oise', town:'Auvers-sur-Oise (95)', line:'Ligne H', station:'Auvers-sur-Oise', lat:49.0719, lon:2.1764 },
+    { id:'std', code:'STD', name:'Basilique de Saint-Denis', town:'Saint-Denis (93)', line:'Métro 13', station:'Basilique de Saint-Denis', lat:48.9354, lon:2.3598 },
+    { id:'vin', code:'VIN', name:'Château de Vincennes', town:'Vincennes (94)', line:'Métro 1', station:'Château de Vincennes', lat:48.8427, lon:2.4357 },
+    { id:'mea', code:'MEA', name:'Cathédrale de Meaux', town:'Meaux (77)', line:'Ligne P', station:'Meaux', lat:48.9603, lon:2.8790 },
+    { id:'pro', code:'PRO', name:'Tour César', town:'Provins (77)', line:'Ligne P', station:'Provins', lat:48.5617, lon:3.2889 },
+    { id:'fon', code:'FON', name:'Château de Fontainebleau', town:'Fontainebleau (77)', line:'Ligne R', station:'Fontainebleau-Avon', lat:48.4021, lon:2.7005 },
+    { id:'sce', code:'SCE', name:'Parc de Sceaux', town:'Sceaux (92)', line:'RER B', station:'Parc de Sceaux', lat:48.7745, lon:2.2990 }
+  ];
+
+  // Contour approximatif de la région et tracé simplifié de la Seine et de la Marne (lon, lat).
+  const OUTLINE = [[1.68,49.21],[1.80,49.19],[1.94,49.17],[2.10,49.19],[2.22,49.17],[2.36,49.14],[2.54,49.10],[2.70,49.07],[2.90,49.08],[3.07,49.11],[3.16,48.98],[3.38,48.87],[3.48,48.74],[3.55,48.62],[3.42,48.53],[3.40,48.42],[3.20,48.37],[3.02,48.31],[2.94,48.20],[2.72,48.13],[2.50,48.14],[2.42,48.28],[2.25,48.31],[2.05,48.29],[1.94,48.40],[1.92,48.46],[1.80,48.47],[1.72,48.60],[1.60,48.66],[1.58,48.78],[1.50,48.93],[1.46,49.05],[1.58,49.08],[1.66,49.14]];
+  const SEINE = [[3.24,48.41],[2.95,48.38],[2.75,48.45],[2.66,48.54],[2.48,48.61],[2.45,48.73],[2.35,48.855],[2.25,48.83],[2.30,48.93],[2.17,48.90],[2.08,48.98],[1.91,49.00],[1.72,48.99],[1.63,49.08],[1.55,49.07]];
+  const MARNE = [[3.13,48.95],[2.88,48.96],[2.71,48.87],[2.48,48.83],[2.41,48.82]];
+
+  // --- État ---
+  let state = { badges:{}, selected:'ver', mode:'real', testPlace:null };
+  try { Object.assign(state, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch (e) {}
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+  let last = null;      // dernière vérification
+  let busy = false;
+  let justWon = null;   // identifiant du badge tout juste gagné, pour l'animation
+  let mePos = null;     // dernière position connue, pour le point sur la carte
+
+  const $ = id => document.getElementById(id);
+  const places = () => state.testPlace ? [...PLACES, state.testPlace] : PLACES;
+  const current = () => places().find(p => p.id === state.selected) || PLACES[0];
+
+  // --- Géométrie ---
+  const rad = d => d * Math.PI / 180;
+  function haversine(a, b) {
+    const R = 6371000, dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function bearing(a, b) {
+    const y = Math.sin(rad(b.lon - a.lon)) * Math.cos(rad(b.lat));
+    const x = Math.cos(rad(a.lat)) * Math.sin(rad(b.lat)) - Math.sin(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.cos(rad(b.lon - a.lon));
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+  function offset(p, meters, deg) {
+    return {
+      lat: p.lat + meters * Math.cos(rad(deg)) / 111320,
+      lon: p.lon + meters * Math.sin(rad(deg)) / (111320 * Math.cos(rad(p.lat)))
+    };
+  }
+  const fmtDist = m => m < 1000 ? Math.round(m) + ' m'
+    : (m / 1000).toLocaleString('fr-FR', { maximumFractionDigits: m < 10000 ? 1 : 0 }) + ' km';
+
+  // --- Obtenir une position ---
+  function realPosition(onProgress) {
+    return new Promise((resolve, reject) => {
+      if (!window.isSecureContext) return reject({ code: 'insecure' });
+      if (!('geolocation' in navigator)) return reject({ code: 'unsupported' });
+      let best = null, done = false, watchId = null, t1 = 0, t2 = 0;
+      const finish = err => {
+        if (done) return; done = true;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        clearTimeout(t1); clearTimeout(t2);
+        best ? resolve(best) : reject(err || { code: 'timeout' });
+      };
+      // On écoute quelques secondes et on garde la mesure la plus précise.
+      watchId = navigator.geolocation.watchPosition(pos => {
+        const c = pos.coords;
+        if (!best || c.accuracy < best.acc) best = { lat: c.latitude, lon: c.longitude, acc: c.accuracy };
+        onProgress && onProgress(best);
+        if (best.acc <= 30) finish();
+      }, err => finish({ code: ['', 'denied', 'unavailable', 'timeout'][err.code] || 'unavailable' }),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+      t1 = setTimeout(() => { if (best) finish(); }, 8000);
+      t2 = setTimeout(() => finish({ code: 'timeout' }), 16000);
+    });
+  }
+  function simulatedPosition(place) {
+    const d = +$('simWhere').value, acc = +$('simAcc').value;
+    return new Promise(res => setTimeout(() => res({ ...offset(place, d, 60), acc }), 900));
+  }
+
+  // --- Vérifier une présence ---
+  async function validate() {
+    const p = current();
+    if (busy || state.badges[p.id]) return;
+    busy = true; last = null; render();
+    const source = state.mode;
+    try {
+      const pos = source === 'sim' ? await simulatedPosition(p) : await realPosition(b => {
+        const el = $('liveAcc'); if (el) el.textContent = 'Précision actuelle : ± ' + fmtDist(b.acc);
+      });
+      const dist = haversine(p, pos);
+      const verdict = pos.acc > MAX_ACC ? 'imprecise' : dist <= RADIUS ? 'ok' : 'far';
+      last = { placeId: p.id, source, ...pos, dist, bearing: bearing(p, pos), verdict };
+      mePos = pos;
+      if (verdict === 'ok') { state.badges[p.id] = Date.now(); justWon = p.id; save(); }
+    } catch (e) {
+      last = { placeId: p.id, source, verdict: 'err', error: e.code || 'unavailable' };
+    }
+    busy = false; render(); justWon = null;
+  }
+
+  async function makeTestPlace() {
+    if (busy) return;
+    busy = true; hint('Recherche de ta position…'); render();
+    try {
+      const pos = await realPosition();
+      state.testPlace = { id:'test', code:'ICI', name:'Lieu test', town:'Créé à ta position', line:'Test', station:'précision ± ' + fmtDist(pos.acc), lat:pos.lat, lon:pos.lon };
+      delete state.badges.test;
+      state.selected = 'test'; mePos = pos; last = null; save();
+      hint('Lieu test créé. Valide ta présence, puis éloigne-toi de plus de 150 m pour voir un refus.');
+    } catch (e) {
+      hint(ERRORS[e.code || 'unavailable'][0] + ' ' + ERRORS[e.code || 'unavailable'][1], true);
+    }
+    busy = false; render();
+  }
+  function hint(text, isErr) { const h = $('simHint'); h.textContent = text; h.className = 'hint' + (isErr ? ' err' : ''); }
+
+  const ERRORS = {
+    denied: ['Accès à la position refusé.', 'Autorise la localisation pour ce site dans les réglages du navigateur, puis réessaie.'],
+    unavailable: ['Position introuvable.', 'Vérifie que la localisation du téléphone est activée, puis réessaie.'],
+    timeout: ['Le GPS ne répond pas.', 'Mets-toi en extérieur et réessaie.'],
+    insecure: ['Géolocalisation bloquée.', 'Le navigateur ne donne la position qu\'aux pages en HTTPS.'],
+    unsupported: ['Géolocalisation indisponible.', 'Ce navigateur ne sait pas donner la position.']
+  };
+
+  // --- Rendu ---
+  const LON0 = 1.40, LAT1 = 49.28, S = 220, KX = 0.66, W = 2.2 * KX * S, H = 1.2 * S;
+  const px = lon => (lon - LON0) * KX * S, py = lat => (LAT1 - lat) * S;
+  const pts = arr => arr.map(([lo, la]) => px(lo).toFixed(1) + ',' + py(la).toFixed(1)).join(' ');
+  const inMap = p => { const x = px(p.lon), y = py(p.lat); return x > 4 && x < W - 4 && y > 4 && y < H - 4; };
+
+  function renderMap() {
+    const pins = places().filter(inMap).map(p => {
+      const done = !!state.badges[p.id], sel = p.id === state.selected;
+      return `<g class="pin${done ? ' done' : ''}${sel ? ' sel' : ''}" data-id="${p.id}" tabindex="0" role="button" aria-label="${p.name}${done ? ', badge obtenu' : ''}" transform="translate(${px(p.lon).toFixed(1)} ${py(p.lat).toFixed(1)})">
+        <circle class="hit" r="15"/><circle class="dot" r="${sel ? 9 : 7.5}"/>
+        ${done ? '<path class="check" d="M-3.4 0.2l2.3 2.5 4.5-5.2"/>' : ''}
+        ${sel ? `<text class="pin-label" y="-14" text-anchor="middle">${p.code}</text>` : ''}
+      </g>`;
+    });
+    // le lieu sélectionné est dessiné en dernier pour passer au-dessus de ses voisins
+    pins.sort((a, b) => a.includes(' sel"') - b.includes(' sel"'));
+    const me = mePos && inMap(mePos) ? `<circle class="me-dot" cx="${px(mePos.lon).toFixed(1)}" cy="${py(mePos.lat).toFixed(1)}" r="4.5"/>` : '';
+    $('map').innerHTML = `<svg viewBox="0 0 ${W.toFixed(0)} ${H}" role="group" aria-label="Carte schématique de l'Île-de-France">
+      <polygon class="land" points="${pts(OUTLINE)}"/>
+      <polyline class="river" points="${pts(SEINE)}"/><polyline class="river" points="${pts(MARNE)}"/>
+      <circle class="paris" cx="${px(2.345)}" cy="${py(48.857)}" r="8"><title>Paris</title></circle>
+      ${me}${pins.join('')}</svg>`;
+  }
+
+  function radar(res, viewBox = '-100 -100 200 200') {
+    const R = 40, k = R / RADIUS; let inner = '', cls = '';
+    if (res && res.dist != null) {
+      cls = res.verdict;
+      const near = res.dist <= RADIUS * 2.2;
+      const r = near ? res.dist * k : 86, a = rad(res.bearing - 90);
+      const x = (r * Math.cos(a)).toFixed(1), y = (r * Math.sin(a)).toFixed(1);
+      const halo = near ? Math.min(res.acc * k, 98 - r) : 0; // le halo de précision reste dans le cadre
+      inner = (halo > 6 ? `<circle class="halo" cx="${x}" cy="${y}" r="${halo.toFixed(1)}"/>` : '')
+        + (near ? '' : `<line class="ray" x1="0" y1="0" x2="${x}" y2="${y}"/>`)
+        + `<circle class="me" cx="${x}" cy="${y}" r="5.5"/>`;
+    }
+    return `<svg class="radar ${cls}" viewBox="${viewBox}" role="img" aria-label="Zone de validation de 150 mètres autour du lieu">
+      <circle class="zone" r="${R}"/><circle class="poi" r="4"/>
+      <text class="zone-label" y="-46" text-anchor="middle">${RADIUS} m</text>${inner}</svg>`;
+  }
+
+  function statusFor(p) {
+    const won = state.badges[p.id];
+    if (busy) return ['', 'Recherche de ta position…', `<span id="liveAcc">${state.mode === 'sim' ? 'Position simulée' : 'Garde la page ouverte quelques secondes.'}</span>`];
+    const r = last && last.placeId === p.id ? last : null;
+    if (r && r.verdict === 'ok') return ['ok', 'Badge débloqué !', `Tu es à ${fmtDist(r.dist)} du lieu, précision ± ${fmtDist(r.acc)}.`];
+    if (won) return ['ok', 'Badge obtenu', 'Validé le ' + new Date(won).toLocaleDateString('fr-FR', { day:'numeric', month:'long' }) + ' à ' + new Date(won).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) + '.'];
+    if (r && r.verdict === 'far') return ['far', `Tu es à ${fmtDist(r.dist)} du lieu.`, `Approche-toi à moins de ${RADIUS} m pour valider.` + (r.source === 'real' ? ' Pour tester sans te déplacer, passe en position simulée.' : '')];
+    if (r && r.verdict === 'imprecise') return ['imprecise', `Position trop imprécise (± ${fmtDist(r.acc)}).`, 'Active la « position exacte » dans les réglages du téléphone ou mets-toi en extérieur, puis réessaie.'];
+    if (r && r.verdict === 'err') return ['err', ERRORS[r.error][0], ERRORS[r.error][1]];
+    return ['', 'Quête à valider sur place', `Il faut être à moins de ${RADIUS} m du lieu.`];
+  }
+
+  function renderPlace() {
+    const p = current(), won = !!state.badges[p.id];
+    const [cls, head, more] = statusFor(p);
+    const r = last && last.placeId === p.id ? last : null;
+    $('place').innerHTML = `
+      <div>
+        <h2>${p.name}</h2>
+        <p class="where"><span>${p.town}</span><span class="pastille">${p.line}</span><span>${p.station}</span></p>
+      </div>
+      <div class="check-row">
+        ${radar(r)}
+        <div class="status ${cls}"><p class="head">${head}</p><p class="more">${more}</p></div>
+      </div>
+      <button type="button" class="cta${busy ? ' busy' : ''}" id="cta" ${won || busy ? 'disabled' : ''}>${won ? 'Badge déjà obtenu' : busy ? 'Localisation en cours…' : 'Valider ma présence'}</button>`;
+    $('cta').addEventListener('click', validate);
+  }
+
+  function renderProgress() {
+    const earned = places().filter(p => state.badges[p.id]).sort((a, b) => state.badges[a.id] - state.badges[b.id]);
+    let html = '';
+    for (let i = 0; i < GOAL; i++) {
+      const p = earned[i];
+      html += p ? `<li class="slot on${p.id === justWon ? ' pop' : ''}" title="${p.name}">${p.code}</li>` : `<li class="slot" aria-label="Emplacement libre">${i + 1}</li>`;
+    }
+    $('slots').innerHTML = html;
+    const n = earned.length;
+    $('progressText').textContent = n >= GOAL ? `${n} badges, récompense débloquée` : `${n} sur ${GOAL} badges`;
+    $('reward').hidden = n < GOAL;
+  }
+
+  function renderList() {
+    $('list').innerHTML = places().map(p => {
+      const done = !!state.badges[p.id];
+      return `<li><button type="button" class="row${done ? ' done' : ''}" data-id="${p.id}" aria-current="${p.id === state.selected}">
+        <span class="code">${p.code}</span>
+        <span class="txt"><span class="n">${p.name}</span><span class="t">${p.town} · ${p.line}</span></span>
+        ${done ? '<span class="st">Badge obtenu</span>' : ''}</button></li>`;
+    }).join('');
+  }
+
+  function renderLog() {
+    const r = last, rows = [];
+    if (!r) rows.push(['État', 'aucune vérification pour l\'instant']);
+    else {
+      rows.push(['Lieu', (places().find(p => p.id === r.placeId) || {}).name || r.placeId]);
+      rows.push(['Source', r.source === 'sim' ? 'position simulée' : 'GPS réel (Geolocation API)']);
+      if (r.verdict === 'err') rows.push(['Erreur', r.error]);
+      else {
+        rows.push(['Latitude', r.lat.toFixed(5)], ['Longitude', r.lon.toFixed(5)], ['Précision', '± ' + Math.round(r.acc) + ' m'], ['Distance', Math.round(r.dist) + ' m']);
+        rows.push(['Règle', `distance ≤ ${RADIUS} m et précision ≤ ${MAX_ACC} m`]);
+        rows.push(['Décision', { ok:'validé', far:'refusé : trop loin', imprecise:'refusé : position trop imprécise' }[r.verdict]]);
+      }
+    }
+    $('logBody').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  }
+
+  function renderSim() {
+    const sim = state.mode === 'sim';
+    $('modeReal').setAttribute('aria-pressed', String(!sim));
+    $('modeSim').setAttribute('aria-pressed', String(sim));
+    $('simFields').hidden = !sim;
+    $('realTools').hidden = sim;
+    $('makeTest').textContent = state.testPlace ? 'Recréer le lieu test à ma position' : 'Créer un lieu test à ma position';
+    if (!$('simHint').textContent || $('simHint').dataset.auto === '1') {
+      $('simHint').dataset.auto = '1';
+      $('simHint').className = 'hint';
+      $('simHint').textContent = sim
+        ? 'La position est fabriquée par la page pour montrer les trois issues : validé, trop loin, trop imprécis.'
+        : 'La page demande la vraie position du téléphone. Le lieu test permet d\'essayer une validation réelle sans se déplacer.';
+    }
+  }
+
+  function render() { renderProgress(); renderMap(); renderPlace(); renderSim(); renderLog(); renderList(); }
+
+  // --- Interactions ---
+  function select(id) { if (busy) return; state.selected = id; save(); render(); }
+  $('map').addEventListener('click', e => { const g = e.target.closest('.pin'); if (g) select(g.dataset.id); });
+  $('map').addEventListener('keydown', e => {
+    const g = e.target.closest('.pin');
+    if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(g.dataset.id); }
+  });
+  $('list').addEventListener('click', e => {
+    const b = e.target.closest('.row');
+    if (b) { select(b.dataset.id); $('place').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  });
+  const setMode = m => { if (busy) return; state.mode = m; $('simHint').dataset.auto = '1'; save(); render(); };
+  $('modeReal').addEventListener('click', () => setMode('real'));
+  $('modeSim').addEventListener('click', () => setMode('sim'));
+  $('makeTest').addEventListener('click', () => { $('simHint').dataset.auto = '0'; makeTestPlace(); });
+
+  let resetArmed = 0;
+  $('reset').addEventListener('click', () => {
+    const b = $('reset');
+    if (!resetArmed) {
+      b.textContent = 'Confirmer : effacer tous les badges'; b.classList.add('danger');
+      resetArmed = setTimeout(() => { resetArmed = 0; b.textContent = 'Remettre la progression à zéro'; b.classList.remove('danger'); }, 4000);
+      return;
+    }
+    clearTimeout(resetArmed); resetArmed = 0;
+    state.badges = {}; state.testPlace = null; state.selected = 'ver'; last = null; mePos = null; save();
+    b.textContent = 'Remettre la progression à zéro'; b.classList.remove('danger');
+    $('simHint').dataset.auto = '1'; render();
+  });
+
+  // --- Tutoriel ---
+  const TUTO = [
+    { title: 'Choisis un lieu',
+      text: '9 lieux à découvrir dans toute l\'Île‑de‑France. Touche un point sur la carte pour ouvrir sa quête.',
+      art: () => `<svg viewBox="0 0 ${W.toFixed(0)} ${H}"><polygon class="land" points="${pts(OUTLINE)}"/>`
+        + PLACES.map((p, i) => `<circle class="${i ? 'art-pin' : 'art-sel'}" cx="${px(p.lon).toFixed(1)}" cy="${py(p.lat).toFixed(1)}" r="${i ? 8 : 13}"/>`).reverse().join('') + '</svg>' },
+    { title: 'Rends-toi sur place',
+      text: 'Chaque fiche indique la ligne et la station les plus proches. Le lieu se valide quand tu es à moins de 150 m.',
+      art: () => `<svg viewBox="0 0 260 130">
+        <rect class="art-chip" x="14" y="22" width="52" height="22" rx="6"/><text class="art-chip-t" x="40" y="37" text-anchor="middle">RER C</text>
+        <circle class="art-zone" cx="204" cy="82" r="38"/><text class="art-t" x="204" y="36" text-anchor="middle">150 m</text>
+        <path class="art-line" d="M20 82H186"/>
+        <circle class="art-stop" cx="20" cy="82" r="6"/><circle class="art-stop" cx="76" cy="82" r="6"/><circle class="art-stop" cx="132" cy="82" r="6"/><circle class="art-stop" cx="186" cy="82" r="8"/>
+        <circle class="art-poi" cx="216" cy="70" r="7"/></svg>` },
+    { title: 'Valide ta présence',
+      text: 'Appuie sur « Valider ma présence » et autorise la localisation. Ta position sert seulement à mesurer la distance jusqu\'au lieu.',
+      art: () => radar({ dist: 70, bearing: 135, acc: 30, verdict: 'ok' }, '-62 -62 124 124') },
+    { title: 'Collectionne les badges',
+      text: 'Chaque lieu validé te donne un badge. Au sixième, ta récompense se débloque.',
+      art: () => '<ol class="slots">' + ['VER', 'STD', 'VIN', 'FON'].map(c => `<li class="slot on">${c}</li>`).join('') + '<li class="slot">5</li><li class="slot">6</li></ol>' },
+    { title: 'Teste sans te déplacer',
+      text: 'Cette page est une démo. Dans « Réglages de démonstration », passe en position simulée, ou crée un lieu test là où tu es pour essayer avec ton vrai GPS.',
+      art: () => '<div class="seg art-seg"><span>GPS réel</span><span class="on">Position simulée</span></div>' }
+  ];
+  const dlg = $('tuto'); let tutoStep = 0;
+  function renderTuto() {
+    const s = TUTO[tutoStep], lastStep = tutoStep === TUTO.length - 1;
+    $('tutoArt').innerHTML = s.art();
+    $('tutoStep').textContent = `Étape ${tutoStep + 1} sur ${TUTO.length}`;
+    $('tutoTitle').textContent = s.title;
+    $('tutoText').textContent = s.text;
+    $('tutoDots').innerHTML = TUTO.map((_, i) => `<i class="${i === tutoStep ? 'on' : ''}"></i>`).join('');
+    $('tutoNext').textContent = lastStep ? 'C\'est parti' : 'Suivant';
+    $('tutoSkip').hidden = lastStep;
+  }
+  function openTuto() { tutoStep = 0; renderTuto(); dlg.showModal ? dlg.showModal() : dlg.setAttribute('open', ''); }
+  function closeTuto() { dlg.close ? dlg.close() : dlg.removeAttribute('open'); state.tutoSeen = true; save(); }
+  $('openTuto').addEventListener('click', openTuto);
+  $('tutoSkip').addEventListener('click', closeTuto);
+  $('tutoNext').addEventListener('click', () => { if (tutoStep === TUTO.length - 1) closeTuto(); else { tutoStep++; renderTuto(); } });
+  dlg.addEventListener('click', e => { if (e.target === dlg) closeTuto(); });   // clic sur le fond
+  dlg.addEventListener('close', () => { state.tutoSeen = true; save(); });      // touche Échap
+
+  if (/Instagram|FBAN|FBAV|TikTok|musical_ly|Snapchat|Line\//i.test(navigator.userAgent)) $('inapp').hidden = false;
+  if (!places().some(p => p.id === state.selected)) state.selected = 'ver';
+  render();
+  if (!state.tutoSeen) openTuto();   // première visite
+})();
+</script>
+</body>
+</html>
